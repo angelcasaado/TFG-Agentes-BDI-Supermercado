@@ -66,7 +66,7 @@ async def main():
         smart = SupermercadoInteligente(
             jid,
             pwd,
-            modo_adaptativo=adapatativo,
+            modo_adaptativo=adaptativo,
             peer_smart_jids=[]   # se rellena justo después
         )
         smart_supermercados.append(smart)
