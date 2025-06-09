@@ -246,7 +246,7 @@ async def main():
         [{
             "Tipo": "SupermercadoInteligente",
             "ID": smart.jid,
-            "Ubicacion": str(smart.ubicacion),
+            "Ubicacion": str(smart.creencias.obtener("ubicacion")),
             "Creencias": str(smart.creencias.data),
             "Deseos": ", ".join(str(d) for d in smart.desires),
             "Hora de creacion": smart.creation_time.strftime("%Y-%m-%d %H:%M:%S"),
