@@ -1,12 +1,3 @@
-"""
-TFG-Agentes-BDI-Supermercado
-
-Copyright (c) 2025 Angel Casado (https://github.com/angelcasaado)
-
-Este archivo forma parte de TFG-Agentes-BDI-Supermercado.
-Se distribuye bajo la licencia MIT. Para más detalles, consulta el archivo LICENSE
-en la raíz del repositorio.
-"""
 import nest_asyncio
 import asyncio
 import random
@@ -66,7 +57,7 @@ async def main():
         smart = SupermercadoInteligente(
             jid,
             pwd,
-            modo_adaptativo=adaptativo,
+            modo_adaptativo=adapatativo,
             peer_smart_jids=[]   # se rellena justo después
         )
         smart_supermercados.append(smart)
@@ -246,7 +237,7 @@ async def main():
         [{
             "Tipo": "SupermercadoInteligente",
             "ID": smart.jid,
-            "Ubicacion": str(smart.creencias.obtener("ubicacion")),
+            "Ubicacion": str(smart.ubicacion),
             "Creencias": str(smart.creencias.data),
             "Deseos": ", ".join(str(d) for d in smart.desires),
             "Hora de creacion": smart.creation_time.strftime("%Y-%m-%d %H:%M:%S"),
