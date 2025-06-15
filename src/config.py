@@ -6,13 +6,13 @@ WEIGHT_ETHICAL = 1.0
 # Importancia de la distancia
 WEIGHT_DISTANCE = 0
 
-MAX_PURCHASES = 750
+MAX_PURCHASES = 700
 THRESHOLD_INDISPENSABLE = 2
 CERCANO_THRESHOLD = 200
 NUM_SUPERMERCADOS = 15
-NUM_INTELIGENTES = 2
+NUM_INTELIGENTES = 1
 NUM_CLIENTES = 50
-adapatativo = "atraccion_clientes"
+adapatativo = "reevaluacion_productos"
 cambios_productos_log = []
 productos_inteligentes_log = []
 evaluacion_cambios_log = []
@@ -23,13 +23,7 @@ atraccion_eventos_log = []
 ###############################################################################
 # Definición de Productos, Variedades y Valores Éticos Predefinidos
 ###############################################################################
-possible_products = ["Manzana",
-                     "Leche",
-                     "Pan",
-                     "Carne",
-                     "Arroz",
-                     "Pasta",
-                     "Huevos",
+possible_products = ["Manzana", "Leche", "Pan", "Carne", "Arroz","Pasta", "Huevos",
                      "Jugo",
                      "Queso"]
 

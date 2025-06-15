@@ -275,15 +275,13 @@ async def main():
     with pd.ExcelWriter(excel_path, engine='openpyxl') as writer:
         df_decisiones.to_excel(writer, sheet_name="Decisiones", index=False)
         df_agentes.to_excel(writer,   sheet_name="Agentes",      index=False)
+        df_creencias.to_excel(writer, sheet_name="Cambios de Creencias", index=False)
         df_ventas.to_excel(writer,    sheet_name="Ventas Registradas",  index=False)
         df_inteligentes.to_excel(writer, sheet_name="Ventas Inteligentes", index=False)
-        if not df_cambios.empty:
-            df_cambios.to_excel(writer,  sheet_name="Cambios de Productos", index=False)
+        df_cambios.to_excel(writer,  sheet_name="Cambios de Productos", index=False)
         df_prod_int.to_excel(writer, sheet_name="Productos Inteligentes", index=False)
-        if not df_eval.empty:
-            df_eval.to_excel(writer, sheet_name="Reevaluacion", index=False)
-        if not df_atraccion.empty:
-            df_atraccion.to_excel(writer, sheet_name="Atraccion_Clientes", index=False)
+        df_eval.to_excel(writer,     sheet_name="Evaluacion Cambios",  index=False)
+        df_atraccion.to_excel(writer, sheet_name="Eventos_Atraccion", index=False)
         # ——— Bar plot para todos los supermercados inteligentes ———
         df_purchases = df_decisiones[df_decisiones['accion'].isin(['compra', 'compra_indispensable'])]
 
@@ -322,45 +320,6 @@ async def main():
         plt.close()
 
         logging.info(f"Bar plot total visitas supermercados inteligentes guardado en: {bar_path}")
-        csv_folder = os.path.join(os.getcwd(), "csv's")
-    if not os.path.exists(csv_folder):
-        os.makedirs(csv_folder)
 
-    #Decisiones (siempre existe)
-    csv_path_decisiones = os.path.join(csv_folder, "decisiones.csv")
-    df_decisiones.to_csv(csv_path_decisiones, index=False)
-    logging.info(f"CSV 'decisiones.csv' guardado en: {csv_path_decisiones}")
-
-    # Agentes (siempre existe)
-    csv_path_agentes = os.path.join(csv_folder, "agentes.csv")
-    df_agentes.to_csv(csv_path_agentes, index=False)
-    logging.info(f"CSV 'agentes.csv' guardado en: {csv_path_agentes}")
-
-    # Cambios de Creencias (aunque casi siempre vacío, mantenemos la misma lógica que al exportar la hoja)
-    csv_path_creencias = os.path.join(csv_folder, "cambios_de_creencias.csv")
-    df_creencias.to_csv(csv_path_creencias, index=False)
-    logging.info(f"CSV 'cambios_de_creencias.csv' guardado en: {csv_path_creencias}")
-
-    # Ventas Registradas (siempre existe)
-    csv_path_ventas = os.path.join(csv_folder, "ventas_registradas.csv")
-    df_ventas.to_csv(csv_path_ventas, index=False)
-    logging.info(f"CSV 'ventas_registradas.csv' guardado en: {csv_path_ventas}")
-
-    # Ventas Inteligentes (siempre existe)
-    csv_path_inteligentes = os.path.join(csv_folder, "ventas_inteligentes.csv")
-    df_inteligentes.to_csv(csv_path_inteligentes, index=False)
-    logging.info(f"CSV 'ventas_inteligentes.csv' guardado en: {csv_path_inteligentes}")
-
-    # Atracción de Clientes (solo si no está vacío)
-    if not df_atraccion.empty:
-        csv_path_atraccion = os.path.join(csv_folder, "atraccion_clientes.csv")
-        df_atraccion.to_csv(csv_path_atraccion, index=False)
-        logging.info(f"CSV 'atraccion_clientes.csv' guardado en: {csv_path_atraccion}")
-
-    # Reevaluación (solo si no está vacío)
-    if not df_eval.empty:
-        csv_path_reevaluacion = os.path.join(csv_folder, "reevaluacion.csv")
-        df_eval.to_csv(csv_path_reevaluacion, index=False)
-        logging.info(f"CSV 'reevaluacion.csv' guardado en: {csv_path_reevaluacion}")
 if __name__ == "__main__":
     asyncio.run(main())

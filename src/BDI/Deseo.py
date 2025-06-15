@@ -3,7 +3,7 @@ class Deseo:
         self.nombre = nombre
         self.parametros = parametros if parametros is not None else {}
         self.prioridad = prioridad
-        
+
     def __repr__(self):
         return f"Deseo({
             self.nombre}, {

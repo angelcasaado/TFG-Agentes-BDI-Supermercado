@@ -1,24 +1,16 @@
 from spade.agent import Agent
-from spade.behaviour import CyclicBehaviour, PeriodicBehaviour
+from spade.behaviour import CyclicBehaviour, OneShotBehaviour, PeriodicBehaviour
+
 from spade.message import Message
-from ..config import (
-    ENABLE_VARIETY_CHANGE,
-    VARIETY_CHANGE_INTERVAL,
-    possible_products,
-    possible_varieties,
-    predefined_ethics,
-    supermercados_ubicaciones
-)
+from ..logger import logger
+from ..config import *
 import random
-from ..BDI.Creencias import Creencias
-from ..BDI.Deseo import Deseo
-from ..BDI.Intenciones import Intencion
-from ..logger import logging
+from ..BDI.Creencias import *
+from ..BDI.Deseo import *
+from ..BDI.Intenciones import *
+from ..logger import * 
 import json
 import datetime
-import asyncio
-
-
 class SupermercadoAgent(Agent):
     def __init__(
         self,
@@ -26,7 +18,7 @@ class SupermercadoAgent(Agent):
         password,
         supermercado_id,
         productos,
-        smart_super_jids: list[str],
+        smart_super_jids: list[str],   # ahora es lista
         desires=None
     ):
         x, y = random.randint(0, 100), random.randint(0, 100)
@@ -36,102 +28,68 @@ class SupermercadoAgent(Agent):
         self.full_jid = full_jid
         self.ubicacion = (x, y)
         self.smart_super_jids = smart_super_jids
-
-        # Inventario inicial
-        inventario = self.generar_criterios_productos()
+        # Inventario
+        self.productos = self.generar_criterios_productos()
         supermercados_ubicaciones[self.supermercado_id] = self.ubicacion
 
-        # Creencias: clientes, ventas e inventario
+        # Creencias: clientes y ventas
         self.creencias = Creencias()
         self.creencias.actualizar("clientes", {})
         self.creencias.actualizar("ventas", [])
-        self.creencias.actualizar("inventario", inventario)
 
         # Registros de ventas
         self.ventas_delta = []
         self.ventas_registradas_hist = []
+        self.smart_super_jid = smart_super_jids
         self.creation_time = datetime.datetime.now()
-        # Registro del último cambio de variedades
-        self.last_variety_change = datetime.datetime.now()
-
-        # Deseos iniciales
+        # Deseos
         if desires is None:
             self.desires = [
-                Deseo("tener_stock", {})
+                Deseo("vender_productos", {"stock": self.productos}),
+                Deseo("atraer_clientes")
             ]
-            if ENABLE_VARIETY_CHANGE:
-                # Añadimos el deseo fijo de rotar variedades si está activado
-                self.desires.append(Deseo("rotar_variedades"))
         else:
             self.desires = desires
-            if ENABLE_VARIETY_CHANGE and not any(d.nombre == "rotar_variedades" for d in self.desires):
-                self.desires.append(Deseo("rotar_variedades"))
-
-        # Intención actual (None si no hay)
-        self.intencion = None
-
     class BDIBehaviour(PeriodicBehaviour):
         """
-        Ciclo BDI para SupermercadoAgent:
-        1) ACTUALIZAR CRENCIAS (ventas/clientes/inventario)
-        2) DELIBERAR: revisar cada deseo en self.agent.desires,
-           comprobando si está insatisfecho:
-           - "tener_stock": si algún producto < 100 unidades
-           - "rotar_variedades": si ha pasado VARIETY_CHANGE_INTERVAL
-        3) PLANIFICAR/EJECUTAR la Intención asociada:
-           - "rotar_variedades" en ambos casos
-        4) REINICIO
+        BDI explícito:
+         1) Observe: lee creencias actuales (ventas, clientes).
+         2) Delibera: decide qué deseo atender (vender_productos vs atraer_clientes).
+         3) Ejecuta: llama a la acción correspondiente.
         """
-        def __init__(self, period):
-            super().__init__(period=period)
-
         async def run(self):
             agent = self.agent
-            ahora = datetime.datetime.now()
 
-            # ---------------------------------------------
-            # FASE 1: ACTUALIZAR CRENCIAS (ya se actualizan en otros comportamientos)
-            clientes = agent.creencias.obtener("clientes") or {}
+            # --- 1) Observación de creencias ---
             ventas = agent.creencias.obtener("ventas") or []
-            inventario = agent.creencias.obtener("inventario") or {}
+            clientes = agent.creencias.obtener("clientes") or {}
 
-            # ---------------------------------------------
-            # FASE 2: DELIBERAR (verificar deseos insatisfechos)
-            agent.intencion = None
+            # --- 2) Deliberación ---
+            # Prioridad 1: vender_productos (si hay stock bajo en varias referencias)
+            low_stock = [p for p, d in agent.productos.items() if d["stock"] < 100]
+            if low_stock:
+                intención = "rotar_variedades"
+            else:
+                # Prioridad 2: atraer_clientes (si pocos clientes recientes)
+                num_clientes = len(clientes)
+                if num_clientes < 5:
+                    intención = "atraer_clientes"
+                else:
+                    # Si ya hay actividad: nada que hacer
+                    intención = None
 
-            # 2.1 Revisar "tener_stock"
-            low_stock = [p for p, d in inventario.items() if d["stock"] < 100]
-            if any(d.nombre == "tener_stock" for d in agent.desires) and low_stock:
-                deseo_ts = next(d for d in agent.desires if d.nombre == "tener_stock")
-                agent.intencion = Intencion(deseo_ts, "rotar_variedades")
+            # --- 3) Ejecución de la intención ---
+            if intención == "rotar_variedades":
+                logging.info(f"[{agent.supermercado_id}] Intención: rotar_variedades")
+                await asyncio.to_thread(agent.cambiar_variedades)
 
-            # 2.2 Si no se elige "tener_stock", revisar "rotar_variedades"
-            if agent.intencion is None and ENABLE_VARIETY_CHANGE:
-                tiempo_pasado = (ahora - agent.last_variety_change).total_seconds()
-                if any(d.nombre == "rotar_variedades" for d in agent.desires) and tiempo_pasado >= VARIETY_CHANGE_INTERVAL:
-                    deseo_rv = next(d for d in agent.desires if d.nombre == "rotar_variedades")
-                    agent.intencion = Intencion(deseo_rv, "rotar_variedades")
+            elif intención == "atraer_clientes":
+                logging.info(f"[{agent.supermercado_id}] Intención: atraer_clientes")
+                # Aquí podrías implementar, p.ej., cambiar precios o promociones.
+                # Como demo, simplemente reinicio el registro de clientes:
+                agent.creencias.actualizar("clientes", {})
 
-            # ---------------------------------------------
-            # FASE 3: PLANIFICAR/EJECUTAR según Intención
-            # ---------------------------------------------
-            if agent.intencion is not None:
-                plan = agent.intencion.plan
-                deseo_act = agent.intencion.deseo
-
-                if plan == "rotar_variedades":
-                    logging.info(f"[{agent.supermercado_id}] Intención: rotar_variedades")
-                    await asyncio.to_thread(agent.cambiar_variedades)
-
-                    # Si la intención venía de "rotar_variedades", actualizar timestamp
-                    if deseo_act.nombre == "rotar_variedades":
-                        agent.last_variety_change = datetime.datetime.now()
-
-            # ---------------------------------------------
-            # FASE 4: REINICIO DEL CICLO
-            # ---------------------------------------------
-            return
-
+            # Si no hay intención, simplemente salta al siguiente ciclo.
     def generar_criterios_productos(self):
         resultado = {}
         for producto in possible_products:
@@ -144,31 +102,29 @@ class SupermercadoAgent(Agent):
             detalle["variedad"] = variedad
             resultado[producto] = detalle
         return resultado
-
     def cambiar_variedades(self):
         """
         Cambia a una variedad distinta para cada producto en el inventario,
         conservando el stock, y lo registra en el logger.
         """
-        inventario = self.creencias.obtener("inventario") or {}
-        for producto, datos in list(inventario.items()):
+        for producto, datos in list(self.productos.items()):
             if producto in possible_varieties:
                 current = datos["variedad"]
                 opciones = [v for v in possible_varieties[producto] if v != current]
                 nueva = random.choice(opciones) if opciones else current
 
+                # Copiamos los valores éticos y stock de la nueva variedad
                 detalle = predefined_ethics[nueva].copy()
                 detalle["stock"] = datos["stock"]
                 detalle["variedad"] = nueva
 
-                inventario[producto] = detalle
+                # Actualizamos en el inventario
+                self.productos[producto] = detalle
+
                 logging.info(
                     f"[{self.supermercado_id}] Cambió {producto} "
                     f"de {current} a {nueva}"
                 )
-
-        self.creencias.actualizar("inventario", inventario)
-
     class RotarVariedadesPeriodic(PeriodicBehaviour):
         """
         Si ENABLE_VARIETY_CHANGE es True, cada VARIETY_CHANGE_INTERVAL segundos
@@ -194,14 +150,12 @@ class SupermercadoAgent(Agent):
             # Venta
             if isinstance(data, dict) and data.get("tipo") == "venta":
                 productos_comprados = data.get("productos_comprados", {})
-                inventario = self.agent.creencias.obtener("inventario") or {}
                 for var, qty in productos_comprados.items():
                     base = var.split("_")[0]
-                    if base in inventario:
-                        inventario[base]["stock"] = max(
-                            0, inventario[base]["stock"] - qty
+                    if base in self.agent.productos:
+                        self.agent.productos[base]["stock"] = max(
+                            0, self.agent.productos[base]["stock"] - qty
                         )
-                self.agent.creencias.actualizar("inventario", inventario)
                 # Registrar venta
                 self.agent.ventas_delta.append(data)
                 self.agent.ventas_registradas_hist.append(data)
@@ -221,10 +175,9 @@ class SupermercadoAgent(Agent):
 
             # Responder oferta
             respuesta = Message(to=str(msg.sender))
-            inventario = self.agent.creencias.obtener("inventario") or {}
             respuesta.body = json.dumps({
                 "tipo": "Peticion_Cliente",
-                "productos": inventario,
+                "productos": self.agent.productos,
                 "ubicacion": self.agent.ubicacion
             })
             await self.send(respuesta)
